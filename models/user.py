@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Enum as SQLEnum
 from db.session import Base
 import enum
+from sqlalchemy.orm import relationship
 
 class RoleEnum(str, enum.Enum):
     customer = "customer"
@@ -14,3 +15,4 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(SQLEnum(RoleEnum), default=RoleEnum.customer)
+    orders   = relationship("Order", back_populates="user", cascade="all, delete-orphan")

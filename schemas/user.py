@@ -1,10 +1,7 @@
 from pydantic import BaseModel, EmailStr
-from enum import Enum
+from models.user import RoleEnum
 
 
-class RoleEnum(str,Enum):
-    customer = "customer"
-    admin = "admin"
     
 class Userbase(BaseModel):
     username:str
@@ -17,6 +14,6 @@ class UserOut(Userbase):
     id: int
     role: RoleEnum
     
-    class Config:
-        orm_mode =True
+class Config:
+    from_attributes = True
    
