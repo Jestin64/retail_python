@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
+from typing import List
 
-from schemas.category import CategoryCreate, CategoryOut
+from schemas.category import CategoryCreate, CategoryUpdate, CategoryOut
 from crud.category import (
     create_category,
     get_category,
@@ -9,68 +10,59 @@ from crud.category import (
     update_category,
     delete_category,
 )
+from db.session import get_db
 from core.security import get_current_user, admin_required
 from models.user import User
-from db.session import get_db
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
-# List all categories (any logged‑in user)
-@router.get("/", response_model=list[CategoryOut])
-def list_categories(
+@router.get("/", response_model=List[CategoryOut])
+def read_categories(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)  # Authenticated users can read categories
 ):
     return get_categories(db, skip, limit)
 
-# Get one category by ID (any logged‑in user)
 @router.get("/{category_id}", response_model=CategoryOut)
 def read_category(
     category_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ):
-    cat = get_category(db, category_id)
-    if not cat:
-        raise HTTPException(status_code=404, detail="Category not found")
-    return cat
+    category = get_category(db, category_id)
+    if not category:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
+    return category
 
-# Create a category (admins only)
-@router.post(
-    "/",
-    response_model=CategoryOut,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 def create_category_endpoint(
-    cat_in: CategoryCreate,
+    payload: CategoryCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(admin_required),
+    user: User = Depends(admin_required)  # Admin only
 ):
-    return create_category(db, cat_in)
+    return create_category(db, payload)
 
-# Update a category (admins only)
 @router.put("/{category_id}", response_model=CategoryOut)
 def update_category_endpoint(
     category_id: int,
-    cat_in: CategoryCreate,
+    payload: CategoryUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(admin_required),
+    user: User = Depends(admin_required)  # Admin only
 ):
-    updated = update_category(db, category_id, cat_in)
+    updated = update_category(db, category_id, payload)
     if not updated:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
     return updated
 
-# Delete a category (admins only)
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category_endpoint(
     category_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(admin_required),
+    user: User = Depends(admin_required)  # Admin only
 ):
     success = delete_category(db, category_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Category not found")
-    return
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
+

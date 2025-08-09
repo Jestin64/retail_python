@@ -1,31 +1,31 @@
 from pydantic import BaseModel
-from datetime import datetime
 from typing import List
+from datetime import datetime
+from models.order import OrderStatus
 
+# ---- OrderItem Schemas ----
 class OrderItemBase(BaseModel):
     product_id: int
     quantity: int
-    price_at_order: float
 
 class OrderItemCreate(OrderItemBase):
     pass
 
 class OrderItemOut(OrderItemBase):
     id: int
+    price: float
 
     class Config:
         orm_mode = True
 
-class OrderBase(BaseModel):
-    total: float
-    status: str = "pending"
-
-class OrderCreate(OrderBase):
+# ---- Order Schemas ----
+class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
 
-class OrderOut(OrderBase):
+class OrderOut(BaseModel):
     id: int
     user_id: int
+    status: OrderStatus
     created_at: datetime
     items: List[OrderItemOut]
 

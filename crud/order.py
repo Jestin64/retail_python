@@ -1,63 +1,45 @@
 from sqlalchemy.orm import Session
 from models.order import Order, OrderItem
+from models.product import Product
 from schemas.order import OrderCreate
+from typing import List
+from models.order import OrderStatus
 
-def create_order(db: Session, user_id: int, order_in: OrderCreate) -> Order:
-    """
-    Create a new Order with its items.
-    """
-    # 1) Build the Order object
-    db_order = Order(
-        user_id=user_id,
-        total=order_in.total,
-        status=order_in.status
-    )
-    # 2) Stage it for insertion
-    db.add(db_order)
-    # 3) Flush so db_order.id is populated
-    db.flush()
+def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
+    order = Order(user_id=user_id)
+    db.add(order)
+    db.flush()  # get order.id before adding items
 
-    # 4) Loop through each item and create OrderItem rows
-    for item in order_in.items:
-        db_item = OrderItem(
-            order_id=db_order.id,
+    for item in order_data.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not product or product.stock < item.quantity:
+            raise ValueError(f"Product {item.product_id} unavailable or insufficient stock")
+
+        # Reduce stock
+        product.stock -= item.quantity
+
+        db.add(OrderItem(
+            order_id=order.id,
             product_id=item.product_id,
             quantity=item.quantity,
-            price_at_order=item.price_at_order
-        )
-        db.add(db_item)
+            price=product.price
+        ))
 
-    # 5) Commit everything in one transaction
     db.commit()
-    # 6) Refresh so SQLAlchemy pulls in latest data
-    db.refresh(db_order)
-    return db_order
+    db.refresh(order)
+    return order
 
-def get_orders_by_user(db: Session, user_id: int) -> list[Order]:
-    """
-    Retrieve all orders placed by this user.
-    """
+def get_user_orders(db: Session, user_id: int) -> List[Order]:
     return db.query(Order).filter(Order.user_id == user_id).all()
 
-def update_order_status(db: Session, order_id: int, new_status: str) -> Order | None:
-    """
-    Change an order’s status (e.g. pending → shipped).
-    """
-    db_order = db.query(Order).get(order_id)
-    if not db_order:
-        return None
-    db_order.status = new_status
-    db.commit()
-    db.refresh(db_order)
-    return db_order
+def get_all_orders(db: Session) -> List[Order]:
+    return db.query(Order).all()
 
-def delete_order(db: Session, order_id: int) -> bool:
-    """
-    Delete an order and its items.
-    """
-    db_order = db.query(Order).get(order_id)
-    if not db_order:
-        return False
-    db.delete(db_order)
+def update_order_status(db: Session, order_id: int, status: OrderStatus) -> Order:
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        return None
+    order.status = status
     db.commit()
-    return True
+    db.refresh(order)
+    return order

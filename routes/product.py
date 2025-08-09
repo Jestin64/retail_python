@@ -1,5 +1,3 @@
-# routes/product.py
-
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -13,6 +11,8 @@ from crud.product import (
     delete_product,
 )
 from db.session import get_db
+from core.security import get_current_user, admin_required
+from models.user import User
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
@@ -21,6 +21,7 @@ def read_products(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)  # Authentication required to view products
 ):
     return get_products(db, skip, limit)
 
@@ -28,6 +29,7 @@ def read_products(
 def read_product(
     product_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)  # Authentication required
 ):
     prod = get_product(db, product_id)
     if not prod:
@@ -38,6 +40,7 @@ def read_product(
 def create_product_endpoint(
     payload: ProductCreate,
     db: Session = Depends(get_db),
+    user: User = Depends(admin_required)  # Admin access only
 ):
     return create_product(db, payload)
 
@@ -46,6 +49,7 @@ def update_product_endpoint(
     product_id: int,
     payload: ProductUpdate,
     db: Session = Depends(get_db),
+    user: User = Depends(admin_required)  # Admin access only
 ):
     updated = update_product(db, product_id, payload)
     if not updated:
@@ -56,6 +60,7 @@ def update_product_endpoint(
 def delete_product_endpoint(
     product_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(admin_required)  # Admin access only
 ):
     success = delete_product(db, product_id)
     if not success:
